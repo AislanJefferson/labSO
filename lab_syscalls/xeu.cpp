@@ -97,18 +97,19 @@ int main() {
   //   ps aux | grep xeu
   // commands.size() would be 2: (ps aux) and (grep xeu)
   // If the user just presses ENTER without any command, commands.size() is 0
+while(true){
+  cout << "%";
   const vector<Command> commands = StreamParser().parse().commands();
-  Command comando = commands[0];
-  
-  cout << comando.name() << endl;
-  int pidFilho = fork();
-  if(pidFilho == 0){
-  	execvp(comando.filename(),comando.argv());
-	}else{
-  commands_explanation(commands);
-  int status;
-  wait(&status);
-
+  for (int i = 0; i < commands.size(); i++) {
+	  Command comando = commands[i];
+	  int pidFilho = fork();
+	  if(pidFilho == 0){
+	  	execvp(comando.filename(),comando.argv());
+		}else{
+	  int status;
+	  wait(&status);
+	}
+	}
 }
   return 0;
 }
