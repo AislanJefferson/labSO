@@ -97,19 +97,28 @@ int main() {
   //   ps aux | grep xeu
   // commands.size() would be 2: (ps aux) and (grep xeu)
   // If the user just presses ENTER without any command, commands.size() is 0
-while(true){
-  cout << "%";
-  const vector<Command> commands = StreamParser().parse().commands();
-  for (int i = 0; i < commands.size(); i++) {
-	  Command comando = commands[i];
-	  int pidFilho = fork();
-	  if(pidFilho == 0){
-	  	execvp(comando.filename(),comando.argv());
-		}else{
-	  int status;
-	  wait(&status);
-	}
-	}
-}
+  //STDOUT_FILENO <- canal de saida
+  //STDIN_FILENO <- canal de entrada
+  while(true){
+    cout << "% ";
+    const vector<Command> commands = StreamParser().parse().commands();
+        int pipefd[2];
+        pipe(pipefd);
+        int pidFilhos[commands.size()];
+    for (int i = 0; i < commands.size(); i++) {
+      Command comando = commands[i];
+    
+      int pidFilho = fork();
+      if(pidFilho != 0){
+      int status;
+      wait(&status);
+        pidFilhos[i] = pidFilho;
+      }else{
+        if(commands.size() > 1 && i == 0) dup2(pipefd[1],STDOUT_FILENO);
+        else if(i > 0) dup2(pipefd[0],STDIN_FILENO);
+        execvp(comando.filename(),comando.argv());
+      }
+    }
+  }
   return 0;
 }
