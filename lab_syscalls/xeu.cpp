@@ -124,21 +124,19 @@ int main() {
                     if (commands.size() > 1) {
                         if (i == 0) {
                             dup2(pipefd[1], STDOUT_FILENO);
-                            close(pipefd[0]);
-                            close(pipefd[1]);
                         } else if (i > 0) {
                             dup2(pipefd[0], STDIN_FILENO);
-                            close(pipefd[0]);
-                            close(pipefd[1]);
                         }
                     }
+                    close(pipefd[0]);
+                    close(pipefd[1]);
                     execvp(comando.filename(), comando.argv());
                     break;
                 //default:
                   // Parte executada pelo pai
-                  // Comentado pois o while true não encerra o processo
-                  // int status;
-                  // wait(&status);
+                  // Comentado pois o while não encerra o processo pai
+                  //int status;
+                  //wait(&status);
             }
         }
         //Pai fecha pipe
