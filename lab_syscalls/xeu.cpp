@@ -132,17 +132,13 @@ int main() {
                     close(pipefd[1]);
                     execvp(comando.filename(), comando.argv());
                     break;
-                //default:
-                  // Parte executada pelo pai
-                  // Comentado pois o while não encerra o processo pai
-                  //int status;
-                  //wait(&status);
             }
         }
         //Pai fecha pipe
         close(pipefd[0]);
         close(pipefd[1]);
-        wait(NULL);
+        // pai faz wait pra cada processo criado
+        for(int i; i < commands.size();i++) wait(NULL);
     }
     return 0;
 }
