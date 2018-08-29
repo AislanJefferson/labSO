@@ -142,6 +142,7 @@ int main() {
         //Pai fecha pipe
         close(pipefd[0]);
         close(pipefd[1]);
+        wait(NULL);
     }
     return 0;
 }
