@@ -92,35 +92,58 @@ void commands_explanation(const vector<Command>& commands) {
 }
 
 int main() {
-  // Waits for the user to input a command and parses it. Commands separated
-  // by pipe, "|", generate multiple commands. For example, try to input
-  //   ps aux | grep xeu
-  // commands.size() would be 2: (ps aux) and (grep xeu)
-  // If the user just presses ENTER without any command, commands.size() is 0
-  //STDOUT_FILENO <- fd de saida padrao
-  //STDIN_FILENO <- fd de entrada padrao
-  while(true){
-    cout << "% ";
-    const vector<Command> commands = StreamParser().parse().commands();
+    // Waits for the user to input a command and parses it. Commands separated
+    // by pipe, "|", generate multiple commands. For example, try to input
+    //   ps aux | grep xeu
+    // commands.size() would be 2: (ps aux) and (grep xeu)
+    // If the user just presses ENTER without any command, commands.size() is 0
+    //STDOUT_FILENO <- fd de saida padrao
+    //STDIN_FILENO <- fd de entrada padrao
+    string entrada = "";
+    while (entrada != "exit") {
+        cout << "% ";
+        const vector<Command> commands = StreamParser().parse().commands();
         int pipefd[2];
         pipe(pipefd);
-        
-    for (int i = 0; i < commands.size(); i++) {
-      Command comando = commands[i];
-      int pidFilho = fork();
-      if(pidFilho != 0){
-        int status;
-        wait(&status);
-      }else{
-        //Se houver mais de um comando numa linha
-        // faca a saida padrao ser o descritor de escrita do pipe
-        // e se for o segundo comando faca a entrada padrao ser
-        // o descritor de leitura do pipe
-        if(commands.size() > 1 && i == 0) dup2(pipefd[1],STDOUT_FILENO);
-        else if(i > 0) dup2(pipefd[0],STDIN_FILENO);
-        execvp(comando.filename(),comando.argv());
-      }
+
+        for (int i = 0; i < commands.size(); i++) {
+            Command comando = commands[i];
+            if(comando.name() == "exit"){
+              entrada = comando.name();
+              break;
+            }
+            switch (int pidFilho = fork()) {
+                case -1:
+                    printf("Erro ao criar filho");
+                    break;
+                case 0:
+                    //Se houver mais de um comando numa linha
+                    // faca a saida padrao ser o descritor de escrita do pipe
+                    // e se for o segundo comando faca a entrada padrao ser
+                    // o descritor de leitura do pipe
+                    if (commands.size() > 1) {
+                        if (i == 0) {
+                            dup2(pipefd[1], STDOUT_FILENO);
+                            close(pipefd[0]);
+                            close(pipefd[1]);
+                        } else if (i > 0) {
+                            dup2(pipefd[0], STDIN_FILENO);
+                            close(pipefd[0]);
+                            close(pipefd[1]);
+                        }
+                    }
+                    execvp(comando.filename(), comando.argv());
+                    break;
+                //default:
+                  // Parte executada pelo pai
+                  // Comentado pois o while true não encerra o processo
+                  // int status;
+                  // wait(&status);
+            }
+        }
+        //Pai fecha pipe
+        close(pipefd[0]);
+        close(pipefd[1]);
     }
-  }
-  return 0;
+    return 0;
 }
