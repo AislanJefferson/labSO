@@ -103,8 +103,10 @@ int main() {
     while (entrada != "exit") {
         cout << "% ";
         const vector<Command> commands = StreamParser().parse().commands();
-        int pipefd[2];
-        pipe(pipefd);
+        int nos_pipe = commands.size() - 1;
+        int pipefd[2*nos_pipe];
+        //cria os pipes
+        for(int i = 0; i<nos_pipe; i++) pipe(pipefd + (2*i));
 
         for (int i = 0; i < commands.size(); i++) {
             Command comando = commands[i];
@@ -124,19 +126,20 @@ int main() {
                     if (commands.size() > 1) {
                         if (i == 0) {
                             dup2(pipefd[1], STDOUT_FILENO);
-                        } else if (i > 0) {
-                            dup2(pipefd[0], STDIN_FILENO);
+                        } else if (i == commands.size() -1 ) {
+                            dup2(pipefd[(2*i)-2], STDIN_FILENO);
+                        }else{
+                        	dup2(pipefd[(2*i)-2],STDIN_FILENO);
+							dup2(pipefd[((2*i)-2)+3],STDOUT_FILENO);
                         }
                     }
-                    close(pipefd[0]);
-                    close(pipefd[1]);
+                    for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
                     execvp(comando.filename(), comando.argv());
                     break;
             }
         }
         //Pai fecha pipe
-        close(pipefd[0]);
-        close(pipefd[1]);
+		for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
         // pai faz wait pra cada processo criado
         for(int i; i < commands.size();i++) wait(NULL);
     }
