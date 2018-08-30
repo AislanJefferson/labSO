@@ -130,11 +130,11 @@ void ParsingState::parse_next(char c) {
     }
     if (io_.has_fd()) {
       complete_arg();
-      if (io_.has_fd()) {
+      /*if (io_.has_fd()) {
         error_ = true;
         throw std::runtime_error(
           "syntax error: << and >> are not supported.");
-      }
+      }*/
     }
     // get fd and complete arg
     {
