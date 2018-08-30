@@ -92,24 +92,56 @@ void commands_explanation(const vector<Command>& commands) {
 }
 
 int main() {
-  // Waits for the user to input a command and parses it. Commands separated
-  // by pipe, "|", generate multiple commands. For example, try to input
-  //   ps aux | grep xeu
-  // commands.size() would be 2: (ps aux) and (grep xeu)
-  // If the user just presses ENTER without any command, commands.size() is 0
-while(true){
-  cout << "%";
-  const vector<Command> commands = StreamParser().parse().commands();
-  for (int i = 0; i < commands.size(); i++) {
-	  Command comando = commands[i];
-	  int pidFilho = fork();
-	  if(pidFilho == 0){
-	  	execvp(comando.filename(),comando.argv());
-		}else{
-	  int status;
-	  wait(&status);
-	}
-	}
-}
-  return 0;
+    // Waits for the user to input a command and parses it. Commands separated
+    // by pipe, "|", generate multiple commands. For example, try to input
+    //   ps aux | grep xeu
+    // commands.size() would be 2: (ps aux) and (grep xeu)
+    // If the user just presses ENTER without any command, commands.size() is 0
+    //STDOUT_FILENO <- fd de saida padrao
+    //STDIN_FILENO <- fd de entrada padrao
+    string entrada = "";
+    while (entrada != "exit") {
+        cout << "% ";
+        const vector<Command> commands = StreamParser().parse().commands();
+        int nos_pipe = commands.size() - 1;
+        int pipefd[2*nos_pipe];
+        //cria os pipes
+        for(int i = 0; i<nos_pipe; i++) pipe(pipefd + (2*i));
+
+        for (int i = 0; i < commands.size(); i++) {
+            Command comando = commands[i];
+            if(comando.name() == "exit"){
+              entrada = comando.name();
+              break;
+            }
+            switch (int pidFilho = fork()) {
+                case -1:
+                    printf("Erro ao criar filho");
+                    break;
+                case 0:
+                    //Se houver mais de um comando numa linha
+                    // faca a saida padrao ser o descritor de escrita do pipe
+                    // e se for o segundo comando faca a entrada padrao ser
+                    // o descritor de leitura do pipe
+                    if (commands.size() > 1) {
+                        if (i == 0) {
+                            dup2(pipefd[1], STDOUT_FILENO);
+                        } else if (i == commands.size() -1 ) {
+                            dup2(pipefd[(2*i)-2], STDIN_FILENO);
+                        }else{
+                        	dup2(pipefd[(2*i)-2],STDIN_FILENO);
+							dup2(pipefd[((2*i)-2)+3],STDOUT_FILENO);
+                        }
+                    }
+                    for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
+                    execvp(comando.filename(), comando.argv());
+                    break;
+            }
+        }
+        //Pai fecha pipe
+		for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
+        // pai faz wait pra cada processo criado
+        for(int i; i < commands.size();i++) wait(NULL);
+    }
+    return 0;
 }
