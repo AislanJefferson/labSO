@@ -100,19 +100,16 @@ void commands_explanation(const vector<Command>& commands) {
 
 
 int ioRedirect(Command comando){
-	int fd;
-	for (size_t i = 0; i < comando.io().size(); i++) {
+	int fd = -1;
+	for (int i = 0; i < comando.io().size(); i++) {
 	    IOFile io = comando.io()[i];
-	   
+	  
 	   //converte string para const char *
 	    const char * path = io.path().c_str();
-	    
-	    
 	    if (io.is_output()){ //Se for assim > ou assim >>
 	    	close(fd);
-	    	fd = open(path, O_RDWR | O_CREAT, 00700);
-	    	dup2(fd, STDOUT_FILENO);
-	    //falta testar com write
+	    	fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+			dup2(fd, STDOUT_FILENO);
 	    } else {
 	    	cout <<"is input" << endl;
 	    }
@@ -134,12 +131,16 @@ int main() {
         const vector<Command> commands = StreamParser().parse().commands();
         int nos_pipe = commands.size() - 1;
         int pipefd[2*nos_pipe];
+        int fd;
+        
         //cria os pipes
         for(int i = 0; i<nos_pipe; i++) pipe(pipefd + (2*i));
 
         for (int i = 0; i < commands.size(); i++) {
 
             Command comando = commands[i];
+
+            
 
             if(comando.name() == "exit"){
               entrada = comando.name();
@@ -170,17 +171,21 @@ int main() {
                     }
                     //filho fecha pipes
                     for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
-
-                    int fd = ioRedirect(comando);
+                    
+                    fd = ioRedirect(comando);
+                	close(fd);
 
                     execvp(comando.filename(), comando.argv());
-
-                    close(fd);
                     break;
             }
+
+    		
+        	 
         }
         //Pai fecha pipes
         for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
+
+        close(fd);
         // pai faz wait pra cada processo criado
         for(int i; i < commands.size();i++) wait(NULL);
     }
