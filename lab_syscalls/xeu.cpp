@@ -108,7 +108,7 @@ int ioRedirect(Command comando){
 	    const char * path = io.path().c_str();
 	    if (io.is_output()){ //Se for assim > ou assim >>
 	    	close(fd);
-	    	fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	    	fd = open(path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 			dup2(fd, STDOUT_FILENO);
 	    } else {
 	    	cout <<"is input" << endl;
@@ -128,28 +128,21 @@ int main() {
     string entrada = "";
     while (entrada != "exit") {
         cout << "% ";
-        const vector<Command> commands = StreamParser().parse().commands();
-        int nos_pipe = commands.size() - 1;
-        int pipefd[2*nos_pipe];
-        int fd;
-        
+        const vector <Command> commands = StreamParser().parse().commands();
+        int qtdePipes = commands.size() > 1 ? commands.size() - 1 : 0;
+        int pipesfd[2 * qtdePipes];
         //cria os pipes
-        for(int i = 0; i<nos_pipe; i++) pipe(pipefd + (2*i));
+        for (int i = 0; i < qtdePipes; i++) pipe(pipesfd + (2 * i));
 
         for (int i = 0; i < commands.size(); i++) {
-
             Command comando = commands[i];
-
-            
-
-            if(comando.name() == "exit"){
-              entrada = comando.name();
-              break;
+            if (comando.name() == "exit") {
+                entrada = comando.name();
+                break;
             }
-
-            switch (int pidFilho = fork()) {
+            switch (fork()) {
                 case -1:
-                    printf("Erro ao criar filho");
+                    cout << "Erro ao criar filho" << endl;
                     break;
                 case 0:
                     //Se houver mais de um comando numa linha
@@ -157,35 +150,32 @@ int main() {
                     // e se for o segundo comando faca a entrada padrao ser
                     // o descritor de leitura do pipe
                     if (commands.size() > 1) {
-                    	//primeiro comando
                         if (i == 0) {
-                            dup2(pipefd[1], STDOUT_FILENO);
-                            //ultimo comando
-                        } else if (i == commands.size() -1 ) {
-                            dup2(pipefd[(2*i)-2], STDIN_FILENO);
-
-                        }else{//comandos intermediarios
-                        	dup2(pipefd[(2*i)-2],STDIN_FILENO);
-                        	dup2(pipefd[((2*i)-2)+3],STDOUT_FILENO);
+                            // eh primeiro comando
+                            dup2(pipesfd[1], STDOUT_FILENO);
+                        } else if (i == commands.size() - 1) {
+                            // eh comando final
+                            dup2(pipesfd[(2 * i) - 2], STDIN_FILENO);
+                        } else {
+                            // eh comando intermediario
+                            dup2(pipesfd[(2 * i) - 2], STDIN_FILENO);
+                            dup2(pipesfd[((2 * i) - 2) + 3], STDOUT_FILENO);
                         }
                     }
-                    //filho fecha pipes
-                    for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
+                    // filho fecha pipe
+                    for (int j = 0; j < 2 * qtdePipes; j++) close(pipesfd[j]);
                     
-                    fd = ioRedirect(comando);
+                    int fd = ioRedirect(comando);
                 	close(fd);
 
+					// agora pode executar
                     execvp(comando.filename(), comando.argv());
+                    cout << "Erro ao tentar executar o comando!" << endl;
                     break;
-            }
-
-    		
-        	 
+			}
         }
         //Pai fecha pipes
-        for(int j = 0; j<2*nos_pipe; j++) close(pipefd[j]);
-
-        close(fd);
+        for(int j = 0; j<2 * qtdePipes; j++) close(pipesfd[j]);
         // pai faz wait pra cada processo criado
         for(int i; i < commands.size();i++) wait(NULL);
     }
