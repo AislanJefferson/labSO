@@ -99,7 +99,7 @@ void commands_explanation(const vector<Command>& commands) {
 }
 
 
-int ioRedirect(Command comando){
+int ioRedirect(Command comando, ParsingState p){
 	int fd = -1;
 	for (int i = 0; i < comando.io().size(); i++) {
 	    IOFile io = comando.io()[i];
@@ -107,9 +107,14 @@ int ioRedirect(Command comando){
 	   //converte string para const char *
 	    const char * path = io.path().c_str();
 	    if (io.is_output()){ //Se for assim > ou assim >>
-	    	close(fd);
-	    	fd = open(path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-			dup2(fd, STDOUT_FILENO);
+	    	if (p.isDestructive()){
+	    		cout<<"\ndestructive" << endl;
+	    	}else{
+	    		close(fd);
+	    		fd = open(path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+				dup2(fd, STDOUT_FILENO);
+	    	} 
+	    	
 	    } else {
 	    	cout <<"is input" << endl;
 	    }
@@ -126,9 +131,11 @@ int main() {
     //STDOUT_FILENO <- fd de saida padrao
     //STDIN_FILENO <- fd de entrada padrao
     string entrada = "";
+
     while (entrada != "exit") {
         cout << "% ";
-        const vector <Command> commands = StreamParser().parse().commands();
+    	ParsingState p = StreamParser().parse();    
+        const vector <Command> commands = p.commands();
         int qtdePipes = commands.size() > 1 ? commands.size() - 1 : 0;
         int pipesfd[2 * qtdePipes];
         //cria os pipes
@@ -165,7 +172,7 @@ int main() {
                     // filho fecha pipe
                     for (int j = 0; j < 2 * qtdePipes; j++) close(pipesfd[j]);
                     
-                    int fd = ioRedirect(comando);
+                    int fd = ioRedirect(comando, p);
                 	close(fd);
 
 					// agora pode executar

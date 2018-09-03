@@ -10,7 +10,7 @@
 namespace xeu_utils {
 
 ParsingState::ParsingState()
-  : completed_(0), backslash_(0), quotes_(0), error_(0) {}
+  : completed_(0), backslash_(0), quotes_(0), error_(0), destructive_(1) {}
 
 bool ParsingState::error() const {
   return error_;
@@ -18,6 +18,10 @@ bool ParsingState::error() const {
 
 bool ParsingState::completed() const {
   return completed_;
+}
+
+bool ParsingState::isDestructive() const{
+  return destructive_;
 }
 
 const std::vector<Command> ParsingState::commands() const {
@@ -128,13 +132,12 @@ void ParsingState::parse_next(char c) {
     if (backslash_ || quotes_ != NO_QUOTES) {
       break; // fallthrough, not an io redirection
     }
+    //verifica se eh redirecionamento destrutivo ou nao destrutivo
     if (io_.has_fd()) {
       complete_arg();
-      /*if (io_.has_fd()) {
-        error_ = true;
-        throw std::runtime_error(
-          "syntax error: << and >> are not supported.");
-      }*/
+      if (io_.has_fd()) {
+        destructive_ = false;
+      }
     }
     // get fd and complete arg
     {
