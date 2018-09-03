@@ -107,13 +107,14 @@ int ioRedirect(Command comando, ParsingState p){
 	   //converte string para const char *
 	    const char * path = io.path().c_str();
 	    if (io.is_output()){ //Se for assim > ou assim >>
+	    	close(fd);
+	    	
 	    	if (p.isDestructive()){
-	    		cout<<"\ndestructive" << endl;
-	    	}else{
-	    		close(fd);
-	    		fd = open(path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-				dup2(fd, STDOUT_FILENO);
-	    	} 
+	    		remove(path);
+	    	}
+
+	    	fd = open(path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+			dup2(fd, STDOUT_FILENO);
 	    	
 	    } else {
 	    	cout <<"is input" << endl;
