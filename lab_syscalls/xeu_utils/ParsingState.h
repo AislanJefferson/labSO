@@ -57,6 +57,11 @@ struct ParsingState {
    */
   void parse_next(char c);
 
+  /**
+  * Verifica se o redireionamento eh destrutivo (e.g >) ou nao destrutivo (e.g >>).
+  */
+  bool isDestructive() const;
+
  private:
   void complete_arg();
   bool complete_command(bool in_final_state=true);
@@ -64,6 +69,7 @@ struct ParsingState {
   bool completed_;
   bool backslash_;
   bool error_;
+  bool destructive_;
   char quotes_;
   IOFile io_;
   std::string current_arg_;
