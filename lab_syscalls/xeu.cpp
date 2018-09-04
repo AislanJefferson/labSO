@@ -106,8 +106,9 @@ int ioRedirect(Command comando, ParsingState p){
 	  
 	   //converte string para const char *
 	    const char * path = io.path().c_str();
-	    if (io.is_output()){ //Se for assim > ou assim >>
-	    	close(fd);
+
+	    close(fd);
+	    if (io.is_output()){ //Se for redirecionamento de saida (>> ou >)
 	    	
 	    	if (p.isDestructive()){
 	    		remove(path);
@@ -117,9 +118,15 @@ int ioRedirect(Command comando, ParsingState p){
 			dup2(fd, STDOUT_FILENO);
 	    	
 	    } else {
-	    	cout <<"is input" << endl;
+	    	fd = open(path, O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	    	if (fd == -1){
+	    		fprintf(stderr,"%s: Arquivo inexistente\n",path);
+	    	} else {
+	    		dup2(fd, STDIN_FILENO);
+	    	}
 	    }
 	}
+	
 	return fd;
 }
 
@@ -139,8 +146,10 @@ int main() {
         const vector <Command> commands = p.commands();
         int qtdePipes = commands.size() > 1 ? commands.size() - 1 : 0;
         int pipesfd[2 * qtdePipes];
+        int fd;
         //cria os pipes
         for (int i = 0; i < qtdePipes; i++) pipe(pipesfd + (2 * i));
+
 
         for (int i = 0; i < commands.size(); i++) {
             Command comando = commands[i];
@@ -173,17 +182,24 @@ int main() {
                     // filho fecha pipe
                     for (int j = 0; j < 2 * qtdePipes; j++) close(pipesfd[j]);
                     
-                    int fd = ioRedirect(comando, p);
-                	close(fd);
+                    	fd = ioRedirect(comando, p);
+                		close(fd);
 
 					// agora pode executar
                     execvp(comando.filename(), comando.argv());
                     cout << "Erro ao tentar executar o comando!" << endl;
                     break;
+
+                default:
+                	if (commands.size() == 1) {
+                		wait(NULL);
+                	}
+                	break;
 			}
+
         }
         //Pai fecha pipes
-        for(int j = 0; j<2 * qtdePipes; j++) close(pipesfd[j]);
+        for(int j = 0; j < 2 * qtdePipes; j++) close(pipesfd[j]);
         // pai faz wait pra cada processo criado
         for(int i; i < commands.size();i++) wait(NULL);
     }
