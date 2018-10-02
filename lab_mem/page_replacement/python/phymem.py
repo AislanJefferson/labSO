@@ -14,12 +14,15 @@ class PhysicalMemory:
   def __init__(self, algorithm):
     assert algorithm in {"fifo", "nru", "aging", "second-chance"}
     self.algorithm = algorithm
+    if algorithn is "fifo":
+	self.algorithm = FifoPolicy()
 
   def put(self, frameId):
     """Allocates this frameId for some page"""
     # Notice that in the physical memory we don't care about the pageId, we only
     # care about the fact we were requested to allocate a certain frameId
     pass
+    return self.algorithm.put(frameId)
 
   def evict(self):
     """Deallocates a frame from the physical memory and returns its frameId"""
