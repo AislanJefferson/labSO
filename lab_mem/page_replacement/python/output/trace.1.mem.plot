@@ -1,0 +1,17 @@
+nfaults,nframes,alg
+138523,16,aging
+98035,32,aging
+302856,4,aging
+205360,8,aging
+138523,16,fifo
+98035,32,fifo
+302856,4,fifo
+205360,8,fifo
+138523,16,nru
+98035,32,nru
+302856,4,nru
+205360,8,nru
+138523,16,second-chance
+98035,32,second-chance
+302856,4,second-chance
+205360,8,second-chance
