@@ -9,7 +9,7 @@ class NRUPolicy:
     """Deallocates a frame from the physical memory and returns its frameId"""
     # You may assume the physical memory is FULL so we need space!
     # Your code must decide which frame to return, according to the algorithm
-    pass
+    return 0
 
   def clock(self):
     """The amount of time we set for the clock has passed, so this is called"""

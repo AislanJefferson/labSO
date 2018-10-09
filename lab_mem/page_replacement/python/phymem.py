@@ -8,8 +8,8 @@
 # you need...
 from FifoPolicy import FifoPolicy
 from SecChancePolicy import SecChancePolicy
-from SecChancePolicy import SecChancePolicy
-from SecChancePolicy import SecChancePolicy
+from NRUPolicy import NRUPolicy
+from AgingPolicy import AgingPolicy
 
 class PhysicalMemory:
   ALGORITHM_AGING_NBITS = 8
