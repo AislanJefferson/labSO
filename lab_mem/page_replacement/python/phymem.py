@@ -42,8 +42,8 @@ class PhysicalMemory:
   def clock(self):
     """The amount of time we set for the clock has passed, so this is called"""
     # Clear the reference bits (and/or whatever else you think you must do...)
-    pass
+    return self.policy.clock()
 
   def access(self, frameId, isWrite):
     """A frameId was accessed for read/write (if write, isWrite=True)"""
-    pass
+    return self.policy.access(frameId,isWrite)
