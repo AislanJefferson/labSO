@@ -1,6 +1,5 @@
 from FifoPolicy import FifoPolicy
 
-
 class SecChancePolicy(FifoPolicy):
     def put(self, frameId):
         """Allocates this frameId for some page"""
@@ -12,11 +11,11 @@ class SecChancePolicy(FifoPolicy):
         if (not leitura):
             return item
         else:
-             self.fifo.append([0,item])
+             self.fifo.append([False,item])
         """verificar se o self.evict() eh o do FIfoPolicy ou o do SecChancePolicy"""
         return self.evict()
 
     def access(self, frameId, isWrite):
         for frame in self.fifo:
             if(frameId == frame[1]):
-                frameId[0] = True
+                frame[0] = True
