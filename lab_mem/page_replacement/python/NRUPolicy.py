@@ -43,7 +43,7 @@ class NRUPolicy:
 
     def clock(self):
         for frame in self.list:
-            if frame['isRead'] == True:
+            if (frame['isRead']):
                 frame['isRead'] = False
 
     def access(self, frameId, isWrite):
