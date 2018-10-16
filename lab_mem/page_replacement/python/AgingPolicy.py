@@ -37,3 +37,16 @@ class AgingPolicy(NRUPolicy):
                 count_int += 2 ** (7 - i)
 
         return count_int
+
+    def shitf_count(count, bit):
+        if (count == 0):
+            if (bit == 1):
+                new_count = 128
+        else:
+            new_count = count * (bit) + (count >> 1)
+
+        if (new_count > 255):
+            new_count = 255
+
+        return new_count
+

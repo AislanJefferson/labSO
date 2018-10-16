@@ -9,13 +9,15 @@
 from FifoPolicy import FifoPolicy
 from SecChancePolicy import SecChancePolicy
 from NRUPolicy import NRUPolicy
+from LRUPolicy import LRUPolicy
 from AgingPolicy import AgingPolicy
+from RandomPolicy import RandomPolicy
 
 class PhysicalMemory:
   ALGORITHM_AGING_NBITS = 8
   """How many bits to use for the Aging algorithm"""
   def __init__(self, algorithm):
-    assert algorithm in {"fifo", "nru", "aging", "second-chance"}
+    assert algorithm in {"fifo", "nru", "aging", "second-chance", "random", "lru"}
     self.algorithm = algorithm
     if(algorithm == "fifo"):
       self.policy = FifoPolicy()
@@ -23,8 +25,12 @@ class PhysicalMemory:
       self.policy = SecChancePolicy()
     elif(algorithm == "nru"):
       self.policy = NRUPolicy()
-    else:
+    elif(algorithm == "aging"):
       self.policy = AgingPolicy()
+    elif(algorithm == "lru"):
+      self.policy = LRUPolicy()
+    else:
+      self.policy = RandomPolicy()
 
 
   def put(self, frameId):
