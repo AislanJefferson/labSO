@@ -15,16 +15,9 @@ class AgingPolicy(NRUPolicy):
 
     def clock(self):
         for frame in self.list:
-            add_bit = 0
-            if (frame['isRead']):
-                add_bit = 128
-                frame['isRead'] = False
-
-            frame['count'] = (add_bit | (frame['count'] >> 1))
+            frame['count'] = frame['count'] >> 1
 
     def access(self, frameId, isWrite):
         for frame in self.list:
             if(frameId == frame['frameId']):
-                frame['isRead'] = True
-
-
+                frame['count'] = frame['count'] | 128
