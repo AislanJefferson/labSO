@@ -3,7 +3,7 @@ class NRUPolicy:
         self.list = []
 
     def put(self, frameId):
-        frame = {'isRead': False, 'isWrite': False, 'frameId': frameId, 'count': 0}
+        frame = {'isRead': False, 'isWrite': False, 'frameId': frameId, 'count': 128}
         self.list.append(frame)
 
 

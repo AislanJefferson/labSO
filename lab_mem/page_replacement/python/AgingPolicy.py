@@ -15,34 +15,16 @@ class AgingPolicy(NRUPolicy):
 
     def clock(self):
         for frame in self.list:
-            bit = 0
+            add_bit = 0
             if (frame['isRead']):
-                bit = 1
+                add_bit = 128
                 frame['isRead'] = False
 
-            frame['count'] = shitf_count(frame['count'], bit)
+            frame['count'] = (add_bit | (frame['count'] >> 1))
 
     def access(self, frameId, isWrite):
         for frame in self.list:
             if(frameId == frame['frameId']):
                 frame['isRead'] = True
 
-
-    def shitf_count(count, bit):
-        if ((count == 0) & (bit == 1)):        
-            new_count = 128
-        else:
-            new_count = count * (bit) + (count >> 1)
-
-        if (new_count > 255):
-            new_count = 255
-
-        return new_count
-
-    def shitf_count(count, bit):
-        add_bit = bit
-        if (bit == 1):        
-            add_bit = 128
-
-        return add_bit | (count >> 1)
 
