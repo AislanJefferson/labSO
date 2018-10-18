@@ -11,7 +11,7 @@ class NRUPolicy:
         wasRemoved = False
         frame_id = -1
         for frame in self.list:
-            if ((not frame['isRead']) & (not frame['isWrite'])):
+            if ((not frame['isRead']) and (not frame['isWrite'])):
                 frame_id = frame['frameId']
                 self.list.remove(frame)
                 wasRemoved = True
@@ -19,21 +19,21 @@ class NRUPolicy:
 
         if (not wasRemoved):    
             for frame in self.list:
-                if ((not frame['isRead']) & frame['isWrite']):
+                if ((not frame['isRead']) and frame['isWrite']):
                     frame_id = frame['frameId']
                     self.list.remove(frame)
                     wasRemoved = True
                     break
         if (not wasRemoved):
             for frame in self.list:
-                if (frame['isRead'] & (not frame['isWrite'])):
+                if (frame['isRead'] and (not frame['isWrite'])):
                     frame_id = frame['frameId']
                     self.list.remove(frame)
                     wasRemoved = True
                     break
         if (not wasRemoved):    
             for frame in self.list:
-                if (frame['isRead'] & frame['isWrite']):
+                if (frame['isRead'] and frame['isWrite']):
                     frame_id = frame['frameId']
                     self.list.remove(frame)
                     break
