@@ -5,11 +5,11 @@ class SecChancePolicy(FifoPolicy):
         self.fifo.append([False, frameId])
 
     def evict(self):
-        leitura,item = self.fifo.pop(0)
-        if (not leitura):
-            return item
+        r,frame_id = self.fifo.pop(0)
+        if (not r):
+            return frame_id
         else:
-             self.fifo.append([False,item])
+             self.fifo.append([False,frame_id])
         return self.evict()
 
     def access(self, frameId, isWrite):
