@@ -5,7 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <string>
+#include <pthread.h>
 
+#define EXIT_VALUE 50
 const char *SERVER_PID_FPATH = "/var/run/serverid.run";
 
 void handlerUSR1(int signo, siginfo_t *si, void *data) {
@@ -13,10 +15,13 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
     (void) data;
     switch (si->si_signo) {
         case SIGUSR1:
-            printf("Value %d received from pid %lu\n", (si->si_value).sival_int,
+            printf("Value %d received from pid %lu\n", 
+(si->si_value).sival_int,
                    (unsigned long) si->si_pid);
-            remove(SERVER_PID_FPATH);
-            exit(0);
+            if ((si->si_value).sival_int == EXIT_VALUE) {
+                remove(SERVER_PID_FPATH);
+                exit(0);
+            }
             break;
     }
 }
