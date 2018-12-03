@@ -7,11 +7,16 @@
 #include <string>
 #include <pthread.h>
 #include <thread>
-#include "constantes.h"
 #include <iostream>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
+#include "constantes.h"
+#include "cores.h"
 
 #define EXIT_VALUE 50
+
 const char *SERVER_PID_FPATH = "/tmp/serverid.run";
 
 int state = DESCONECTADO;
@@ -28,7 +33,9 @@ void sendControlSignal(int pidDestino, int value) {
         union sigval sv;
         // Adiciona o value_to_send como conteudo de msg do sinal
         sv.sival_int = value;
-        printf("Valor de sinal %d para enviar para %d\n", value,pidDestino);
+        background(YELLOW);
+        printf("Enviando sinal %d para %d", value, pidDestino);
+        style(RESETALL); printf("\n");
         // Envia sinal sv de cod SIGUSR1 para o PID pid
         sigqueue(pidDestino, SIGUSR2, sv);
     }
@@ -59,7 +66,9 @@ void setRootPID(int new_pid) {
     fptr = fopen(SERVER_PID_FPATH, "w+");
 
     if (fptr == NULL) {
+        background(RED);
         printf("Error!");
+        style(RESETALL); printf("\n");
     } else {
 
         fprintf(fptr, "%d", new_pid);
@@ -74,11 +83,41 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
     sigval v = si->si_value;
     if(enviando_mensagem){
       enviando_mensagem = false;
-      printf("Recebi msg que enviei e nao envio mais...\n");
+      background(GREEN);
+      printf("Recebi msg que enviei e nao envio mais...");
+      style(RESETALL); printf("\n");
       sendControlSignal(pidProximo,TOKEN_PASSADO);
       temToken = false;
     }else{
-      printf("Recebi msg %d e tou repassando\n", v.sival_int);
+
+      key_t key = v.sival_int; /* key to be passed to shmget() */
+      int shmid; /* return value from shmget() */
+      void *shm;
+      int *s;
+      if ((shmid = shmget(key, sizeof(int), 0666)) < 0) {
+        background(RED);
+        perror("shmget");
+        style(RESETALL); printf("\n");
+        exit(1);
+    }
+
+      /*
+       * Now we attach the segment to our data space.
+       */
+      if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
+          background(RED);
+          perror("shmat");
+          style(RESETALL); printf("\n");
+          exit(1);
+      }
+      /*
+       * Now put some things into the memory for the
+       * other process to read.
+       */
+      s = (int *) shm;
+      background(BLUE);
+      printf("Recebi msg %d e tou repassando", *s);
+      style(RESETALL); printf("\n");
       sendMessageSignal(v);
     }
 }
@@ -92,8 +131,15 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             temToken = true;
             break;
         case REQ_CONEXAO:
-            printf("Nao estou soh seu novo prox eh %d e estou setando seu pid %d como proximo\n", pidProximo,
-                   si->si_pid);
+          // PRINTS DE INFORMACAO
+            if(pidProximo != SEM_PROXIMO_PROCESSO) {
+              background(YELLOW);
+              printf("Nao estou soh seu novo prox eh %d e estou setando seu pid %d como proximo", pidProximo,
+                     si->si_pid);
+              style(RESETALL); printf("\n");
+            }
+
+           // FIM PRINTS
             sendControlSignal(si->si_pid, pidProximo);
             setProxPID(si->si_pid);
             break;
@@ -102,7 +148,9 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             {
               if (getpid() == getRootPID()) setRootPID(pidProximo);
                 //
-                printf("Desconectando e enviando para %d\n", pidProximo);
+                background(YELLOW);
+                printf("Desconectando e enviando para %d", pidProximo);
+                style(RESETALL); printf("\n");
                 sendControlSignal(pidProximo, si->si_pid);
                 setProxPID(SEM_PROXIMO_PROCESSO);
                 state = DESCONECTADO;
@@ -112,12 +160,16 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             break;
         case NODE_CONNECT_REQ:
             // Seta o proximo para o remetente
-            printf("Setei como prox o pid %d\n", si->si_pid);
+            background(YELLOW);
+            printf("Setei como prox o pid %d", si->si_pid);
+            style(RESETALL); printf("\n");
             setProxPID(si->si_pid);
             break;
         case SEM_PROXIMO_PROCESSO:
             // Seta o proximo para o remetente
-            printf("Setei como prox o pid %d\n", si->si_pid);
+            background(YELLOW);
+            printf("Setei como prox o pid %d", si->si_pid);
+            style(RESETALL); printf("\n");
             setProxPID(si->si_pid);
             state = CONECTADO;
             break;
@@ -125,11 +177,15 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
         default:
             if (state == CONECTANDO) {
                 setProxPID(v.sival_int);
-                printf("Setei como prox o pid  2 %d\n", v.sival_int);
+                background(YELLOW);
+                printf("Setei como prox o pid  %d", v.sival_int);
+                style(RESETALL); printf("\n");
                 state = CONECTADO;
             } else {
                 sendControlSignal(v.sival_int, NODE_CONNECT_REQ);
-                printf("Estado diferente de conectando %d\n", state);
+                background(YELLOW);
+                printf("Estado diferente de conectando %d", state);
+                style(RESETALL); printf("\n");
             }
             break;
     }
@@ -144,7 +200,9 @@ void registraHandlers() {
 
 
     if (sigaction(SIGUSR2, &sa, 0) == -1) {
-        fprintf(stderr, "%s: %s\n", "sigaction", strerror(errno));
+        background(RED);
+        fprintf(stderr, "%s: %s", "sigaction", strerror(errno));
+        style(RESETALL); printf("\n");
     }
 
     struct sigaction sa1;
@@ -155,24 +213,30 @@ void registraHandlers() {
 
 
     if (sigaction(SIGUSR1, &sa1, 0) == -1) {
-        fprintf(stderr, "%s: %s\n", "sigaction", strerror(errno));
+        background(RED);
+        fprintf(stderr, "%s: %s", "sigaction", strerror(errno));
+        style(RESETALL); printf("\n");
     }
 
 
 }
 
 void connect() {
-
-    int rootPid = getRootPID();
-    if (rootPid == PID_INEXISTENTE) {
-        setRootPID(getpid());
-        temToken = true;
-        state = CONECTADO;
-    } else {
-        sendControlSignal(rootPid, REQ_CONEXAO);
-        state = CONECTANDO;
+    if(state == DESCONECTADO){
+      int rootPid = getRootPID();
+      if (rootPid == PID_INEXISTENTE) {
+          setRootPID(getpid());
+          temToken = true;
+          state = CONECTADO;
+      } else {
+          sendControlSignal(rootPid, REQ_CONEXAO);
+          state = CONECTANDO;
+      }
+    }else{
+      background(RED);
+      printf("Ja estou conectado!");
+      style(RESETALL); printf("\n");
     }
-
 }
 
 void disconnect() {
@@ -180,23 +244,67 @@ void disconnect() {
       if(pidProximo == SEM_PROXIMO_PROCESSO){
         setRootPID(PID_INEXISTENTE);
         state = DESCONECTADO;
-        printf("%s\n","Desconectado!" );
+        background(WHITE);
+        foreground(BLACK);
+        printf("%s","Desconectado!" );
+        style(RESETALL); printf("\n");
       }else{
         sendControlSignal(pidProximo, REQ_DESCONEXAO);
-        state = DESCONECTANDO;printf("%s\n","Desconectando!" );
+        state = DESCONECTANDO;
+        background(WHITE);
+        foreground(BLACK);
+        printf("%s","Desconectando!" );
+        style(RESETALL); printf("\n");
       }
     }else{
-      printf("%s\n","Ja desconectado" );
+      background(WHITE);
+      foreground(BLACK);
+      printf("%s","Ja desconectado" );
+      style(RESETALL); printf("\n");
     }
 }
 
 void send(int valor) {
+
   if(temToken){
+    /* Intializes random number generator */
+    time_t t;
+    srand((unsigned) time(&t));
+    key_t key = rand() % RAND_MAX; /* key to be passed to shmget() */
+    int shmid; /* return value from shmget() */
+    void *shm;
+    int *s;
+    if ((shmid = shmget(key, sizeof(valor), IPC_CREAT | 0666)) < 0) {
+        background(RED);
+        perror("shmget");
+        style(RESETALL); printf("\n");
+        exit(1);
+    }
+    /*
+     * Now we attach the segment to our data space.
+     */
+    if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
+        background(RED);
+        perror("shmat");
+        style(RESETALL); printf("\n");
+        exit(1);
+    }
+    /*
+     * Now put some things into the memory for the
+     * other process to read.
+     */
+    s = (int *) shm;
+    *s = valor;
     union sigval sv;
     // Adiciona o value_to_send como conteudo de msg do sinal
-    sv.sival_int = valor;
+    sv.sival_int = key;
     enviando_mensagem = true;
     sendMessageSignal(sv);
+  }else{
+    background(RED);
+    printf("Não tenho o token!");
+    style(RESETALL);
+    printf("\n");
   }
 }
 
@@ -206,11 +314,13 @@ void loop() {
 
 int main(void) {
     registraHandlers();
-
-    printf("%d\n", getpid());
-    for (;;) {
-        char input;
-        printf("PID:%d proximo:%d e estado:%d\nComando: ", getpid(),pidProximo,state);
+    char input = 's';
+    while(input != 'e') {
+        background(WHITE);
+        foreground(BLACK);
+        printf("PID:%d proximo:%d e estado:%d", getpid(),pidProximo,state);
+        style(RESETALL);
+        printf("\n");
         input = getchar();
         switch (input) {
             case 'c':
@@ -225,7 +335,6 @@ int main(void) {
                 send(msg);
                 break;
         }
-
     }
     return 0;
 }
