@@ -357,10 +357,12 @@ void receive() {
   if(state == CONECTADO){
     int token = temToken();
     while(!token && !msgRecebida.eh_valido) sleep(60);
-    msgRecebida.eh_valido = 0;
-    background(BLUE);
-    printf("Recebi msg %d e tou repassando", msgRecebida.dado);
-    style(RESETALL); printf("\n");
+    if(msgRecebida.eh_valido){
+      msgRecebida.eh_valido = 0;
+      background(BLUE);
+      printf("Recebi msg %d e tou repassando", msgRecebida.dado);
+      style(RESETALL); printf("\n");
+    }
   }
 }
 
