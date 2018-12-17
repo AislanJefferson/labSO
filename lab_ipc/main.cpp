@@ -5,10 +5,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <thread>             // std::thread
+#include <mutex>              // std::mutex, std::unique_lock
+#include <condition_variable> // std::condition_variable
 #include <iostream>
+
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 #include "constantes.h"
 #include "cores.h"
@@ -24,6 +29,8 @@ int state = DESCONECTADO;
 bool enviando_mensagem = false;
 int pidProximo = SEM_PROXIMO_PROCESSO;
 mensagem msgRecebida = mensagem_padrao;
+std::mutex mtx;
+std::condition_variable cv;
 //
 
 void setProxPID(int novoProximo){
@@ -105,13 +112,69 @@ void *getMemoria(key_t key, bool create = false){
 }
 
 void setTokenPID(int novoDono){
-  int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
-  *memoriaToken = novoDono;
+  //
+  // SEMAFORO PARA GARANTIR APENAS UM ACESSO POR VEZ
+  // declaring key for semaphore
+  key_t semKey = 1;
+
+  // requesting kernel to return semaphore memory id
+  int semid =
+      semget(semKey, 1, IPC_CREAT | 0666); // semkey, no.of sem, flg|permission
+
+  if (semid == -1)
+    perror("semget");
+  else {
+    // ACQUIRING SEMAPHORE:semval = 1 means semaphore is available
+    // semid, semaphore number, setvalue = 1
+    if (semctl(semid, 0, SETVAL, 1) == -1)
+      perror("smctl");
+    else {
+      // creating semaphore structure
+      struct sembuf x = {0, -1, SEM_UNDO}; // semaphore number, decrement operation,
+                                    // IPC_NOWAIT:process should release sem
+                                    // explicitly
+
+      // perform locking operation on
+      if (semop(semid, &x, 1) == -1)
+        perror("semop");
+      else {
+        printf("semaphore locked \n");
+        int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
+        *memoriaToken = novoDono;
+        shmdt(memoriaToken);
+        semctl(semid,0,SETVAL,1);
+        printf("semaphore unlocked \n");
+      }
+    }
+  }
 }
 
 int getTokenPID(){
-  int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
-  return *(memoriaToken);
+  // declaring key for semaphore
+  key_t semKey = 1;
+
+  // requesting kernel to return semaphore memory id
+  int semid =
+      semget(semKey, 1, IPC_CREAT | 0666); // semkey, no.of sem, flg|permission
+
+  if (semid == -1)
+    perror("semget");
+  else {
+    struct sembuf x = {0, -1, 0}; // semaphore number, decrement operation, IPC_NOWAIT
+    // perform locking operation on
+    if (semop(semid, &x, 1) == -1)
+      perror("semop");
+    else {
+      printf("semaphore locked \n");
+      int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
+      int valorRetorno = *(memoriaToken);
+      shmdt(memoriaToken);
+      // release explicitly
+      semctl(semid, 0, SETVAL, 1);
+      printf("semaphore unlocked \n");
+      return valorRetorno;
+    }
+  }
 }
 
 bool temToken(){
@@ -131,13 +194,8 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       setTokenPID(pidProximo);
 
     }else{
-
       msgRecebida.dado = *((int *) getMemoria(v.sival_int));
       msgRecebida.eh_valido = 1;
-      //notify();
-      background(BLUE);
-      printf("Recebi msg2 %d e tou repassando", msgRecebida.dado);
-      style(RESETALL); printf("\n");
       sendMessageSignal(v);
     }
 }
@@ -283,7 +341,7 @@ void disconnect() {
 
 void send(int valor) {
 
-  if(temToken()){
+  if(state == CONECTADO && temToken()){
     /* Intializes random number generator */
     time_t t;
     srand((unsigned) time(&t));
@@ -304,11 +362,16 @@ void send(int valor) {
   }
 }
 
-/*int receive() {
-  while(!msgRecebida.eh_valido) wait();
-  return msgRecebida.dado;
-
-}*/
+void receive() {
+  if(state == CONECTADO){
+    int token = getTokenPID();
+    while(!token || !msgRecebida.eh_valido) sleep(60);
+    msgRecebida.eh_valido = 0;
+    background(BLUE);
+    printf("Recebi msg %d e tou repassando", msgRecebida.dado);
+    style(RESETALL); printf("\n");
+  }
+}
 
 int main(void) {
     registraHandlers();
@@ -326,6 +389,9 @@ int main(void) {
                 break;
             case 'd':
                 disconnect();
+                break;
+            case 'r':
+                receive();
                 break;
             case 'm':
                 int msg;
