@@ -24,10 +24,17 @@ int pidProximo = SEM_PROXIMO_PROCESSO;
 mensagem msgRecebida = mensagem_padrao;
 //
 
+
+/**
+ * Preenche o campo pidProximo como novoProximo
+**/
 void setProxPID(int novoProximo){
   pidProximo = (novoProximo != getpid()) ? novoProximo : SEM_PROXIMO_PROCESSO;
 }
 
+/**
+ * Funcao que trata o envio de sinais de controle.
+**/
 void sendControlSignal(int pidDestino, int value) {
     if (pidDestino > 0) {
         union sigval sv;
@@ -41,6 +48,9 @@ void sendControlSignal(int pidDestino, int value) {
     }
 }
 
+/**
+ * Funcao que trata o envio de sinais de mensagem (inteiros).
+ **/
 void sendMessageSignal(sigval msg) {
     if (pidProximo != SEM_PROXIMO_PROCESSO) {
         // Adiciona o value_to_send como conteudo de msg do sinal
@@ -49,6 +59,10 @@ void sendMessageSignal(sigval msg) {
     }
 }
 
+
+/**
+ * Retorna o PID do primeiro processo a compor o anel.
+ **/
 int getRootPID() {
     int pid;
     FILE *fptr;
@@ -61,6 +75,11 @@ int getRootPID() {
     return pid;
 }
 
+/**
+ * Seta o PID new_pid para o RootPID
+ * Este metodo eh chamado quando um anel eh criado ou quando
+ * o processo root precisa setar o seu proximo como novo root.
+ **/
 void setRootPID(int new_pid) {
     FILE *fptr;
     fptr = fopen(SERVER_PID_FPATH, "w+");
@@ -185,7 +204,9 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       setTokenPID(pidProximo);
 
     }else{
-      msgRecebida.dado = *((int *) getMemoria(v.sival_int));
+      int *memoriaMsg = (int *) getMemoria(v.sival_int);
+      msgRecebida.dado = *(memoriaMsg);
+      shmdt(memoriaMsg);
       msgRecebida.eh_valido = 1;
       sendMessageSignal(v);
     }
@@ -340,6 +361,7 @@ void send(int valor) {
     int *s;
     s = (int *) getMemoria(key,true);
     *s = valor;
+    shmdt(s);
     union sigval sv;
     // Adiciona o value_to_send como conteudo de msg do sinal
     sv.sival_int = key;
