@@ -17,6 +17,9 @@
 #define    DESCONECTANDO -21 /* System V name for SIGCHLD */
 #define    DESCONECTADO    -22 /* to readers pgrp upon background tty read */
 
+#define EXIT_VALUE 50
+
+const char *SERVER_PID_FPATH = "/tmp/serverid.run";
 #define ENDERECO_TOKEN -500
 
 #endif //UNTITLED_CONSTANTES_H
