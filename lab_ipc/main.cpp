@@ -5,9 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <thread>             // std::thread
-#include <mutex>              // std::mutex, std::unique_lock
-#include <condition_variable> // std::condition_variable
 #include <iostream>
 
 #include <sys/types.h>
@@ -19,18 +16,12 @@
 #include "cores.h"
 #include "mensagem.h"
 
-#define EXIT_VALUE 50
-
-const char *SERVER_PID_FPATH = "/tmp/serverid.run";
-
 
 // Dados especifico de cada processo
 int state = DESCONECTADO;
 bool enviando_mensagem = false;
 int pidProximo = SEM_PROXIMO_PROCESSO;
 mensagem msgRecebida = mensagem_padrao;
-std::mutex mtx;
-std::condition_variable cv;
 //
 
 void setProxPID(int novoProximo){
@@ -364,8 +355,8 @@ void send(int valor) {
 
 void receive() {
   if(state == CONECTADO){
-    int token = getTokenPID();
-    while(!token || !msgRecebida.eh_valido) sleep(60);
+    int token = temToken();
+    while(!token && !msgRecebida.eh_valido) sleep(60);
     msgRecebida.eh_valido = 0;
     background(BLUE);
     printf("Recebi msg %d e tou repassando", msgRecebida.dado);
