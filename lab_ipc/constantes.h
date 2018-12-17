@@ -17,5 +17,6 @@
 #define    DESCONECTANDO -21 /* System V name for SIGCHLD */
 #define    DESCONECTADO    -22 /* to readers pgrp upon background tty read */
 
+#define ENDERECO_TOKEN -500
 
 #endif //UNTITLED_CONSTANTES_H

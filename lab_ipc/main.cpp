@@ -4,9 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <string>
 #include <pthread.h>
-#include <thread>
 #include <iostream>
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -14,15 +12,19 @@
 
 #include "constantes.h"
 #include "cores.h"
+#include "mensagem.h"
 
 #define EXIT_VALUE 50
 
 const char *SERVER_PID_FPATH = "/tmp/serverid.run";
 
+
+// Dados especifico de cada processo
 int state = DESCONECTADO;
-bool temToken = false;
 bool enviando_mensagem = false;
 int pidProximo = SEM_PROXIMO_PROCESSO;
+mensagem msgRecebida = mensagem_padrao;
+//
 
 void setProxPID(int novoProximo){
   pidProximo = (novoProximo != getpid()) ? novoProximo : SEM_PROXIMO_PROCESSO;
@@ -76,6 +78,45 @@ void setRootPID(int new_pid) {
     }
 }
 
+void *getMemoria(key_t key, bool create = false){
+  int shmid; /* return value from shmget() */
+  void *shm;
+  if(create){
+    shmid = shmget(key, sizeof(int), IPC_CREAT | 0666);
+  }else{
+    shmid = shmget(key, sizeof(int), 0666);
+  }
+  if (shmid < 0) {
+    background(RED);
+    perror("shmget");
+    style(RESETALL); printf("\n");
+    exit(1);
+  }
+  /*
+   * Now we attach the segment to our data space.
+   */
+  if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
+      background(RED);
+      perror("shmat");
+      style(RESETALL); printf("\n");
+      exit(1);
+  }
+  return shm;
+}
+
+void setTokenPID(int novoDono){
+  int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
+  *memoriaToken = novoDono;
+}
+
+int getTokenPID(){
+  int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
+  return *(memoriaToken);
+}
+
+bool temToken(){
+  return getTokenPID() == getpid();
+}
 
 void handlerUSR1(int signo, siginfo_t *si, void *data) {
     (void) signo;
@@ -86,37 +127,16 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       background(GREEN);
       printf("Recebi msg que enviei e nao envio mais...");
       style(RESETALL); printf("\n");
-      sendControlSignal(pidProximo,TOKEN_PASSADO);
-      temToken = false;
+
+      setTokenPID(pidProximo);
+
     }else{
 
-      key_t key = v.sival_int; /* key to be passed to shmget() */
-      int shmid; /* return value from shmget() */
-      void *shm;
-      int *s;
-      if ((shmid = shmget(key, sizeof(int), 0666)) < 0) {
-        background(RED);
-        perror("shmget");
-        style(RESETALL); printf("\n");
-        exit(1);
-    }
-
-      /*
-       * Now we attach the segment to our data space.
-       */
-      if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
-          background(RED);
-          perror("shmat");
-          style(RESETALL); printf("\n");
-          exit(1);
-      }
-      /*
-       * Now put some things into the memory for the
-       * other process to read.
-       */
-      s = (int *) shm;
+      msgRecebida.dado = *((int *) getMemoria(v.sival_int));
+      msgRecebida.eh_valido = 1;
+      //notify();
       background(BLUE);
-      printf("Recebi msg %d e tou repassando", *s);
+      printf("Recebi msg2 %d e tou repassando", msgRecebida.dado);
       style(RESETALL); printf("\n");
       sendMessageSignal(v);
     }
@@ -127,9 +147,6 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
     (void) data;
     sigval v = si->si_value;
     switch (v.sival_int) {
-        case TOKEN_PASSADO:
-            temToken = true;
-            break;
         case REQ_CONEXAO:
           // PRINTS DE INFORMACAO
             if(pidProximo != SEM_PROXIMO_PROCESSO) {
@@ -226,7 +243,7 @@ void connect() {
       int rootPid = getRootPID();
       if (rootPid == PID_INEXISTENTE) {
           setRootPID(getpid());
-          temToken = true;
+          setTokenPID(getpid());
           state = CONECTADO;
       } else {
           sendControlSignal(rootPid, REQ_CONEXAO);
@@ -266,34 +283,13 @@ void disconnect() {
 
 void send(int valor) {
 
-  if(temToken){
+  if(temToken()){
     /* Intializes random number generator */
     time_t t;
     srand((unsigned) time(&t));
-    key_t key = rand() % RAND_MAX; /* key to be passed to shmget() */
-    int shmid; /* return value from shmget() */
-    void *shm;
+    key_t key = rand(); /* key to be passed to shmget() */
     int *s;
-    if ((shmid = shmget(key, sizeof(valor), IPC_CREAT | 0666)) < 0) {
-        background(RED);
-        perror("shmget");
-        style(RESETALL); printf("\n");
-        exit(1);
-    }
-    /*
-     * Now we attach the segment to our data space.
-     */
-    if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
-        background(RED);
-        perror("shmat");
-        style(RESETALL); printf("\n");
-        exit(1);
-    }
-    /*
-     * Now put some things into the memory for the
-     * other process to read.
-     */
-    s = (int *) shm;
+    s = (int *) getMemoria(key,true);
     *s = valor;
     union sigval sv;
     // Adiciona o value_to_send como conteudo de msg do sinal
@@ -308,9 +304,11 @@ void send(int valor) {
   }
 }
 
-void loop() {
+/*int receive() {
+  while(!msgRecebida.eh_valido) wait();
+  return msgRecebida.dado;
 
-}
+}*/
 
 int main(void) {
     registraHandlers();
