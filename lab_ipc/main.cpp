@@ -59,7 +59,6 @@ void sendMessageSignal(sigval msg) {
     }
 }
 
-
 /**
  * Retorna o PID do primeiro processo a compor o anel.
  **/
@@ -149,12 +148,12 @@ void setTokenPID(int novoDono){
       if (semop(semid, &x, 1) == -1)
         perror("semop");
       else {
-        printf("semaphore locked \n");
+        printf("Semaforo trancado para setToken\n");
         int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
         *memoriaToken = novoDono;
         shmdt(memoriaToken);
         semctl(semid,0,SETVAL,1);
-        printf("semaphore unlocked \n");
+        printf("Semaforo destrancado para setToken\n");
       }
     }
   }
@@ -178,13 +177,13 @@ int getTokenPID(){
     if (semop(semid, &x, 1) == -1)
       perror("semop");
     else {
-      printf("semaphore locked \n");
+      printf("Semaforo trancado para getToken\n");
       int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
       int valorRetorno = *(memoriaToken);
       shmdt(memoriaToken);
 
       semctl(semid, 0, SETVAL, 1);
-      printf("semaphore unlocked \n");
+      printf("Semaforo destrancado para getToken\n");
       return valorRetorno;
     }
   }
@@ -207,7 +206,7 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
     if(enviando_mensagem){
       enviando_mensagem = false;
       background(GREEN);
-      printf("Recebi msg que enviei e nao envio mais...");
+      printf("Recebi msg que enviei e nao envio mais");
       style(RESETALL); printf("\n");
 
       setTokenPID(pidProximo);
@@ -372,28 +371,32 @@ void leave() {
 /**
  * Envia uma mensagem (inteiro) em broadcast para os outros
  * processos do anel.
+ * Retorna false se a mensagem nao for enviada
  **/
-void send(int valor) {
-  if(state == CONECTADO && temToken()){
-    /* Intializes random number generator */
-    time_t t;
-    srand((unsigned) time(&t));
-    key_t key = rand(); /* key to be passed to shmget() */
-    int *s;
-    s = (int *) getMemoria(key,true);
-    *s = valor;
-    shmdt(s);
-    union sigval sv;
-    // Adiciona o value_to_send como conteudo de msg do sinal
-    sv.sival_int = key;
-    enviando_mensagem = true;
-    sendMessageSignal(sv);
-  }else{
-    background(RED);
-    printf("Não tenho o token!");
-    style(RESETALL);
-    printf("\n");
+bool send(int valor) {
+  bool ret = false;
+  if(state == CONECTADO){
+    if(temToken()){
+      time_t t;
+      srand((unsigned) time(&t));
+      key_t key = rand(); /* chave aleatoria para ser paassada para o shmget() */
+      int *s;
+      s = (int *) getMemoria(key,true);
+      *s = valor;
+      shmdt(s);
+      union sigval sv;
+      sv.sival_int = key;
+      enviando_mensagem = true;
+      sendMessageSignal(sv);
+      ret = true;
+    }else{
+      background(RED);
+      printf("Não tenho o token!");
+      style(RESETALL);
+      printf("\n");
+    }
   }
+  return ret;
 }
 
 /**
@@ -436,6 +439,7 @@ int main(void) {
                 int msg;
                 scanf("%d",&msg);
                 send(msg);
+                
                 break;
         }
     }
