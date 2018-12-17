@@ -17,7 +17,7 @@
 #include "mensagem.h"
 
 
-// Dados especifico de cada processo
+// Variaveis especificas de cada processo
 int state = DESCONECTADO;
 bool enviando_mensagem = false;
 int pidProximo = SEM_PROXIMO_PROCESSO;
@@ -26,7 +26,7 @@ mensagem msgRecebida = mensagem_padrao;
 
 
 /**
- * Preenche o campo pidProximo como novoProximo
+ * Preenche o campo pidProximo como novoProximo.
 **/
 void setProxPID(int novoProximo){
   pidProximo = (novoProximo != getpid()) ? novoProximo : SEM_PROXIMO_PROCESSO;
@@ -76,7 +76,7 @@ int getRootPID() {
 }
 
 /**
- * Seta o PID new_pid para o RootPID
+ * Seta o PID new_pid para o RootPID.
  * Este metodo eh chamado quando um anel eh criado ou quando
  * o processo root precisa setar o seu proximo como novo root.
  **/
@@ -95,8 +95,14 @@ void setRootPID(int new_pid) {
     }
 }
 
+/**
+ * Recebe um id key e retorna um ponteiro pra um segmento
+ * de memoria.
+ * Se create=true, eh acionada a flag IPC_CREAT o qual cria
+ * uma memoria compartilhada entre processos.
+ **/
 void *getMemoria(key_t key, bool create = false){
-  int shmid; /* return value from shmget() */
+  int shmid; 
   void *shm;
   if(create){
     shmid = shmget(key, sizeof(int), IPC_CREAT | 0666);
@@ -109,9 +115,7 @@ void *getMemoria(key_t key, bool create = false){
     style(RESETALL); printf("\n");
     exit(1);
   }
-  /*
-   * Now we attach the segment to our data space.
-   */
+   //Anexa o segmento a nossa area de dados
   if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
       background(RED);
       perror("shmat");
@@ -120,31 +124,28 @@ void *getMemoria(key_t key, bool create = false){
   }
   return shm;
 }
-
+/**
+ * Preenche uma area da memoria compartilhada com o PID do
+ * processo que tem posse do token.
+ **/ 
 void setTokenPID(int novoDono){
-  //
-  // SEMAFORO PARA GARANTIR APENAS UM ACESSO POR VEZ
-  // declaring key for semaphore
+  // Semaforo para garantir apenas um acesso por vez
+  // Declara uma chave para o semaforo
   key_t semKey = TOKEN_KEY;
 
-  // requesting kernel to return semaphore memory id
-  int semid =
-      semget(semKey, 1, IPC_CREAT | 0666); // semkey, no.of sem, flg|permission
+  // Pede ao kernel para retornar o id do semaforo
+  int semid = semget(semKey, 1, IPC_CREAT | 0666);
 
   if (semid == -1)
     perror("semget");
   else {
-    // ACQUIRING SEMAPHORE:semval = 1 means semaphore is available
-    // semid, semaphore number, setvalue = 1
     if (semctl(semid, 0, SETVAL, 1) == -1)
       perror("smctl");
     else {
-      // creating semaphore structure
-      struct sembuf x = {0, -1, SEM_UNDO}; // semaphore number, decrement operation,
-                                    // IPC_NOWAIT:process should release sem
-                                    // explicitly
+      // cria um struct do semaforo
+      struct sembuf x = {0, -1, SEM_UNDO};
 
-      // perform locking operation on
+      // efetua operacao de lock no semaforo
       if (semop(semid, &x, 1) == -1)
         perror("semop");
       else {
@@ -159,19 +160,21 @@ void setTokenPID(int novoDono){
   }
 }
 
+/**
+ * Recupera o PID do dono do token na memoria compartilhada.
+ **/ 
 int getTokenPID(){
-  // declara key pro semaforo
+  // declara uma key pro semaforo
   key_t semKey = TOKEN_KEY;
 
-  // requesting kernel to return semaphore memory id
-  int semid =
-      semget(semKey, 1, IPC_CREAT | 0666); // semkey, no.of sem, flg|permission
+  // Pede ao kernel para retornar o id do semaforo
+  int semid = semget(semKey, 1, IPC_CREAT | 0666);
 
   if (semid == -1)
     perror("semget");
   else {
-    struct sembuf x = {0, -1, 0}; // semaphore number, decrement operation, IPC_NOWAIT
-    // perform locking operation on
+    struct sembuf x = {0, -1, SEM_UNDO};
+    // efetua operacao de lock no semaforo
     if (semop(semid, &x, 1) == -1)
       perror("semop");
     else {
@@ -179,7 +182,7 @@ int getTokenPID(){
       int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
       int valorRetorno = *(memoriaToken);
       shmdt(memoriaToken);
-      // release explicitly
+
       semctl(semid, 0, SETVAL, 1);
       printf("semaphore unlocked \n");
       return valorRetorno;
@@ -187,10 +190,16 @@ int getTokenPID(){
   }
 }
 
+/**
+ * Retorna um true se este processo tiver o token.
+ **/ 
 bool temToken(){
   return getTokenPID() == getpid();
 }
 
+/**
+ * Funcao que recebe o sinal SIGUSR1 (sinal de mensagem).
+ **/
 void handlerUSR1(int signo, siginfo_t *si, void *data) {
     (void) signo;
     (void) data;
@@ -207,34 +216,33 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       int *memoriaMsg = (int *) getMemoria(v.sival_int);
       msgRecebida.dado = *(memoriaMsg);
       shmdt(memoriaMsg);
-      msgRecebida.eh_valido = 1;
+      msgRecebida.eh_valido = true;
       sendMessageSignal(v);
     }
 }
 
+/**
+ * Funcao que recebe o sinal SIGUSR2 (sinal de controle).
+ **/
 void handlerUSR2(int signo, siginfo_t *si, void *data) {
     (void) signo;
     (void) data;
     sigval v = si->si_value;
+    // para cada sinal de controle diferente, existe uma funcionalidade
     switch (v.sival_int) {
         case REQ_CONEXAO:
-          // PRINTS DE INFORMACAO
             if(pidProximo != SEM_PROXIMO_PROCESSO) {
               background(YELLOW);
               printf("Nao estou soh seu novo prox eh %d e estou setando seu pid %d como proximo", pidProximo,
                      si->si_pid);
               style(RESETALL); printf("\n");
             }
-
-           // FIM PRINTS
             sendControlSignal(si->si_pid, pidProximo);
             setProxPID(si->si_pid);
             break;
         case REQ_DESCONEXAO:
-            if (state == DESCONECTANDO)
-            {
+            if (state == DESCONECTANDO){
               if (getpid() == getRootPID()) setRootPID(pidProximo);
-                //
                 background(YELLOW);
                 printf("Desconectando e enviando para %d", pidProximo);
                 style(RESETALL); printf("\n");
@@ -246,14 +254,14 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             }
             break;
         case NODE_CONNECT_REQ:
-            // Seta o proximo para o remetente
+            // Seta o proximo PID para o remetente
             background(YELLOW);
             printf("Setei como prox o pid %d", si->si_pid);
             style(RESETALL); printf("\n");
             setProxPID(si->si_pid);
             break;
         case SEM_PROXIMO_PROCESSO:
-            // Seta o proximo para o remetente
+            // Seta o proximo PID para o remetente
             background(YELLOW);
             printf("Setei como prox o pid %d", si->si_pid);
             style(RESETALL); printf("\n");
@@ -278,6 +286,9 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
     }
 }
 
+/**
+ * Cadastra os tratadores de sinais.
+ **/
 void registraHandlers() {
     struct sigaction sa;
     sigemptyset(&sa.sa_mask);
@@ -308,7 +319,11 @@ void registraHandlers() {
 
 }
 
-void connect() {
+/**
+ * Faz com que o processo se junte ao anel.
+ * Eh verificado se o anel existe ou nao.
+ **/
+void join() {
     if(state == DESCONECTADO){
       int rootPid = getRootPID();
       if (rootPid == PID_INEXISTENTE) {
@@ -326,7 +341,10 @@ void connect() {
     }
 }
 
-void disconnect() {
+/**
+ * Efetua a saida do processo do anel.
+ **/ 
+void leave() {
     if(state == CONECTADO){
       if(pidProximo == SEM_PROXIMO_PROCESSO){
         setRootPID(PID_INEXISTENTE);
@@ -351,8 +369,11 @@ void disconnect() {
     }
 }
 
+/**
+ * Envia uma mensagem (inteiro) em broadcast para os outros
+ * processos do anel.
+ **/
 void send(int valor) {
-
   if(state == CONECTADO && temToken()){
     /* Intializes random number generator */
     time_t t;
@@ -375,14 +396,17 @@ void send(int valor) {
   }
 }
 
+/**
+ * Le o dado de msgRecebida.
+ **/
 void receive() {
   if(state == CONECTADO){
     int token = temToken();
     while(!token && !msgRecebida.eh_valido) sleep(60);
     if(msgRecebida.eh_valido){
-      msgRecebida.eh_valido = 0;
+      msgRecebida.eh_valido = false;
       background(BLUE);
-      printf("Recebi msg %d e tou repassando", msgRecebida.dado);
+      printf("Recebi msg %d", msgRecebida.dado);
       style(RESETALL); printf("\n");
     }
   }
@@ -400,10 +424,10 @@ int main(void) {
         input = getchar();
         switch (input) {
             case 'c':
-                connect();
+                join();
                 break;
-            case 'd':
-                disconnect();
+            case 'l':
+                leave();
                 break;
             case 'r':
                 receive();
