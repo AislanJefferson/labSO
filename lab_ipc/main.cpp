@@ -208,9 +208,8 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       background(GREEN);
       printf("Recebi msg que enviei e nao envio mais");
       style(RESETALL); printf("\n");
-
       setTokenPID(pidProximo);
-
+      sendControlSignal(pidProximo, TOKEN_PASSADO);
     }else{
       int *memoriaMsg = (int *) getMemoria(v.sival_int);
       msgRecebida.dado = *(memoriaMsg);
@@ -229,6 +228,8 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
     sigval v = si->si_value;
     // para cada sinal de controle diferente, existe uma funcionalidade
     switch (v.sival_int) {
+        case TOKEN_PASSADO:
+            break;
         case REQ_CONEXAO:
             if(pidProximo != SEM_PROXIMO_PROCESSO) {
               background(YELLOW);
@@ -322,50 +323,56 @@ void registraHandlers() {
  * Faz com que o processo se junte ao anel.
  * Eh verificado se o anel existe ou nao.
  **/
-void join() {
-    if(state == DESCONECTADO){
-      int rootPid = getRootPID();
-      if (rootPid == PID_INEXISTENTE) {
-          setRootPID(getpid());
-          setTokenPID(getpid());
-          state = CONECTADO;
-      } else {
-          sendControlSignal(rootPid, REQ_CONEXAO);
-          state = CONECTANDO;
-      }
-    }else{
-      background(RED);
-      printf("Ja estou conectado!");
-      style(RESETALL); printf("\n");
-    }
+bool join() {
+  bool ret = false;
+  if(state == DESCONECTADO){
+    int rootPid = getRootPID();
+    if (rootPid == PID_INEXISTENTE) {
+        setRootPID(getpid());
+        setTokenPID(getpid());
+        state = CONECTADO;
+    } else {
+        sendControlSignal(rootPid, REQ_CONEXAO);
+        state = CONECTANDO;
+  }
+  ret = true;
+  }else{
+    background(RED);
+    printf("Ja estou conectado!");
+    style(RESETALL); printf("\n");
+  }
+  return ret;
 }
 
 /**
  * Efetua a saida do processo do anel.
  **/ 
-void leave() {
-    if(state == CONECTADO){
-      if(pidProximo == SEM_PROXIMO_PROCESSO){
-        setRootPID(PID_INEXISTENTE);
-        state = DESCONECTADO;
-        background(WHITE);
-        foreground(BLACK);
-        printf("%s","Desconectado!" );
-        style(RESETALL); printf("\n");
-      }else{
-        sendControlSignal(pidProximo, REQ_DESCONEXAO);
-        state = DESCONECTANDO;
-        background(WHITE);
-        foreground(BLACK);
-        printf("%s","Desconectando!" );
-        style(RESETALL); printf("\n");
-      }
-    }else{
+bool leave() {
+  bool ret = false;
+  if(state == CONECTADO){
+    if(pidProximo == SEM_PROXIMO_PROCESSO){
+      setRootPID(PID_INEXISTENTE);
+      state = DESCONECTADO;
       background(WHITE);
       foreground(BLACK);
-      printf("%s","Ja desconectado" );
+      printf("%s","Desconectado!" );
+      style(RESETALL); printf("\n");
+    }else{
+      sendControlSignal(pidProximo, REQ_DESCONEXAO);
+      state = DESCONECTANDO;
+      background(WHITE);
+      foreground(BLACK);
+      printf("%s","Desconectando!" );
       style(RESETALL); printf("\n");
     }
+    ret = true;
+  }else{
+    background(WHITE);
+    foreground(BLACK);
+    printf("%s","Ja desconectado" );
+    style(RESETALL); printf("\n");
+  }
+  return ret;
 }
 
 /**
@@ -376,25 +383,27 @@ void leave() {
 bool send(int valor) {
   bool ret = false;
   if(state == CONECTADO){
-    if(temToken()){
-      time_t t;
-      srand((unsigned) time(&t));
-      key_t key = rand(); /* chave aleatoria para ser paassada para o shmget() */
-      int *s;
-      s = (int *) getMemoria(key,true);
-      *s = valor;
-      shmdt(s);
-      union sigval sv;
-      sv.sival_int = key;
-      enviando_mensagem = true;
-      sendMessageSignal(sv);
-      ret = true;
-    }else{
+    while(!temToken()){
       background(RED);
       printf("Não tenho o token!");
       style(RESETALL);
       printf("\n");
-    }
+      sleep(60);
+    }      
+    time_t t;
+    srand((unsigned) time(&t));
+    key_t key = rand(); /* chave aleatoria para ser paassada para o shmget() */
+    int *s;
+    s = (int *) getMemoria(key,true);
+    *s = valor;
+    shmdt(s);
+    union sigval sv;
+    sv.sival_int = key;
+    enviando_mensagem = true;
+    sendMessageSignal(sv);
+    ret = true;
+
+      
   }
   return ret;
 }
