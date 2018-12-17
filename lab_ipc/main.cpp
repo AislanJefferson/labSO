@@ -106,7 +106,7 @@ void setTokenPID(int novoDono){
   //
   // SEMAFORO PARA GARANTIR APENAS UM ACESSO POR VEZ
   // declaring key for semaphore
-  key_t semKey = 1;
+  key_t semKey = TOKEN_KEY;
 
   // requesting kernel to return semaphore memory id
   int semid =
@@ -141,8 +141,8 @@ void setTokenPID(int novoDono){
 }
 
 int getTokenPID(){
-  // declaring key for semaphore
-  key_t semKey = 1;
+  // declara key pro semaforo
+  key_t semKey = TOKEN_KEY;
 
   // requesting kernel to return semaphore memory id
   int semid =
