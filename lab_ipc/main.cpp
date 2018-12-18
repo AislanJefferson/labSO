@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
             case 's':
                 int msg;
                 scanf("%d", &msg);
-                send(msg);
+                printf("Retorno do send: %d\n", send(msg));
 
                 break;
         }

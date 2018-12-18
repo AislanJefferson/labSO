@@ -175,6 +175,8 @@ void setTokenPID(int novoDono) {
                 *memoriaToken = novoDono;
                 shmdt(memoriaToken);
                 semctl(semid, 0, SETVAL, 1);
+                //notifica novo dono
+                sendControlSignal(pidProximo, TOKEN_PASSADO);
                 if (modo_debug) {
                     foreground(YELLOW);
                     printf("Semaforo destrancado para setToken");
@@ -213,7 +215,6 @@ int getTokenPID() {
             int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN, true);
             int valorRetorno = *(memoriaToken);
             shmdt(memoriaToken);
-
             semctl(semid, 0, SETVAL, 1);
             if (modo_debug) {
                 foreground(YELLOW);
@@ -249,7 +250,6 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
             printf("\n");
         }
         setTokenPID(pidProximo);
-        sendControlSignal(pidProximo, TOKEN_PASSADO);
     } else {
         int *memoriaMsg = (int *) getMemoria(v.sival_int);
         msgRecebida.dado = *(memoriaMsg);
@@ -397,7 +397,7 @@ void registraHandlers(bool debug = false) {
  **/
 bool join() {
     bool ret = false;
-    if (state == DESCONECTADO) {
+    if (state != CONECTADO) {
         int rootPid = getRootPID();
         if (rootPid == PID_INEXISTENTE) {
             setRootPID(getpid());
@@ -436,6 +436,7 @@ bool leave() {
                 printf("\n");
             }
         } else {
+            if (temToken()) setTokenPID(pidProximo);
             sendControlSignal(pidProximo, REQ_DESCONEXAO);
             state = DESCONECTANDO;
             if (modo_debug) {
