@@ -24,6 +24,7 @@ int pidProximo = SEM_PROXIMO_PROCESSO;
 mensagem msgRecebida = mensagem_padrao;
 sem_t semaphore_msg;
 int semaphore_status = sem_init(&semaphore_msg, 0, 0);
+bool modo_debug = false;
 //
 
 
@@ -42,9 +43,11 @@ void sendControlSignal(int pidDestino, int value) {
         union sigval sv;
         // Adiciona o value_to_send como conteudo de msg do sinal
         sv.sival_int = value;
+        if (modo_debug){
         background(YELLOW);
         printf("Enviando sinal %d para %d", value, pidDestino);
         style(RESETALL); printf("\n");
+      }
         // Envia sinal sv de cod SIGUSR1 para o PID pid
         sigqueue(pidDestino, SIGUSR2, sv);
     }
@@ -86,11 +89,12 @@ void setRootPID(int new_pid) {
     fptr = fopen(SERVER_PID_FPATH, "w+");
 
     if (fptr == NULL) {
+      if (modo_debug){
         background(RED);
-        printf("Error!");
+        printf("Erro ao setar PID do root!");
         style(RESETALL); printf("\n");
+      }
     } else {
-
         fprintf(fptr, "%d", new_pid);
         fclose(fptr);
     }
@@ -111,16 +115,20 @@ void *getMemoria(key_t key, bool create = false){
     shmid = shmget(key, sizeof(int), 0666);
   }
   if (shmid < 0) {
+    if (modo_debug){
     background(RED);
     perror("shmget");
     style(RESETALL); printf("\n");
+      }
     exit(1);
   }
    //Anexa o segmento a nossa area de dados
   if ((shm = shmat(shmid, NULL, 0)) == (int *) -1) {
+    if (modo_debug){
       background(RED);
       perror("shmat");
       style(RESETALL); printf("\n");
+      }
       exit(1);
   }
   return shm;
@@ -150,17 +158,21 @@ void setTokenPID(int novoDono){
       if (semop(semid, &x, 1) == -1)
         perror("semop");
       else {
+        if (modo_debug){
         foreground(YELLOW);
         printf("Semaforo trancado para setToken\n");
         foreground(GREEN);
         printf("Escrevendo o novo dono do token na memoria de token...\n");
+      }
         int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
         *memoriaToken = novoDono;
         shmdt(memoriaToken);
         semctl(semid,0,SETVAL,1);
+        if (modo_debug){
         foreground(YELLOW);
         printf("Semaforo destrancado para setToken");
         style(RESETALL); printf("\n");
+      }
       }
     }
   }
@@ -184,13 +196,22 @@ int getTokenPID(){
     if (semop(semid, &x, 1) == -1)
       perror("semop");
     else {
-      printf("Semaforo trancado para getToken\n");
+       if (modo_debug){
+        foreground(YELLOW);
+        printf("Semaforo trancado para getToken\n");
+        foreground(GREEN);
+        printf("Acessando a memoria de token...\n");
+      }
       int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
       int valorRetorno = *(memoriaToken);
       shmdt(memoriaToken);
 
       semctl(semid, 0, SETVAL, 1);
-      printf("Semaforo destrancado para getToken\n");
+      if (modo_debug){
+        foreground(YELLOW);
+        printf("Semaforo destrancado para getToken");
+        style(RESETALL); printf("\n");
+      }
       return valorRetorno;
     }
   }
@@ -212,9 +233,11 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
     sigval v = si->si_value;
     if(enviando_mensagem){
       enviando_mensagem = false;
+      if (modo_debug){
       background(GREEN);
       printf("Recebi msg que enviei e nao envio mais");
       style(RESETALL); printf("\n");
+      }
       setTokenPID(pidProximo);
       sendControlSignal(pidProximo, TOKEN_PASSADO);
     }else{
@@ -247,10 +270,12 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             break;
         case REQ_CONEXAO:
             if(pidProximo != SEM_PROXIMO_PROCESSO) {
+              if (modo_debug){
               background(YELLOW);
               printf("Nao estou soh seu novo prox eh %d e estou setando seu pid %d como proximo", pidProximo,
                      si->si_pid);
               style(RESETALL); printf("\n");
+      }
             }
             sendControlSignal(si->si_pid, pidProximo);
             setProxPID(si->si_pid);
@@ -258,9 +283,11 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
         case REQ_DESCONEXAO:
             if (state == DESCONECTANDO){
               if (getpid() == getRootPID()) setRootPID(pidProximo);
+              if (modo_debug){
                 background(YELLOW);
                 printf("Desconectando e enviando para %d", pidProximo);
                 style(RESETALL); printf("\n");
+            }
                 sendControlSignal(pidProximo, si->si_pid);
                 setProxPID(SEM_PROXIMO_PROCESSO);
                 state = DESCONECTADO;
@@ -270,16 +297,20 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
             break;
         case NODE_CONNECT_REQ:
             // Seta o proximo PID para o remetente
+            if (modo_debug){
             background(YELLOW);
             printf("Setei como prox o pid %d", si->si_pid);
             style(RESETALL); printf("\n");
+      }
             setProxPID(si->si_pid);
             break;
         case SEM_PROXIMO_PROCESSO:
             // Seta o proximo PID para o remetente
+            if (modo_debug){
             background(YELLOW);
             printf("Setei como prox o pid %d", si->si_pid);
             style(RESETALL); printf("\n");
+      }
             setProxPID(si->si_pid);
             state = CONECTADO;
             break;
@@ -287,15 +318,19 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
         default:
             if (state == CONECTANDO) {
                 setProxPID(v.sival_int);
+                if (modo_debug){
                 background(YELLOW);
                 printf("Setei como prox o pid  %d", v.sival_int);
                 style(RESETALL); printf("\n");
+                }
                 state = CONECTADO;
             } else {
                 sendControlSignal(v.sival_int, NODE_CONNECT_REQ);
+                if (modo_debug){
                 background(YELLOW);
                 printf("Estado diferente de conectando %d", state);
                 style(RESETALL); printf("\n");
+      }
             }
             break;
     }
@@ -304,18 +339,20 @@ void handlerUSR2(int signo, siginfo_t *si, void *data) {
 /**
  * Cadastra os tratadores de sinais.
  **/
-void registraHandlers() {
+void registraHandlers(bool debug=false) {
+    modo_debug = debug;
     struct sigaction sa;
     sigemptyset(&sa.sa_mask);
 
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = handlerUSR2;
 
-
     if (sigaction(SIGUSR2, &sa, 0) == -1) {
+      if (modo_debug){
         background(RED);
         fprintf(stderr, "%s: %s", "sigaction", strerror(errno));
         style(RESETALL); printf("\n");
+      }
     }
 
     struct sigaction sa1;
@@ -324,11 +361,13 @@ void registraHandlers() {
     sa1.sa_flags = SA_SIGINFO;
     sa1.sa_sigaction = handlerUSR1;
 
-
+  
     if (sigaction(SIGUSR1, &sa1, 0) == -1) {
+        if (modo_debug){
         background(RED);
         fprintf(stderr, "%s: %s", "sigaction", strerror(errno));
         style(RESETALL); printf("\n");
+        }
     }
 
 
@@ -352,9 +391,11 @@ bool join() {
   }
   ret = true;
   }else{
+    if (modo_debug){
     background(RED);
     printf("Ja estou conectado!");
     style(RESETALL); printf("\n");
+      }
   }
   return ret;
 }
@@ -368,24 +409,30 @@ bool leave() {
     if(pidProximo == SEM_PROXIMO_PROCESSO){
       setRootPID(PID_INEXISTENTE);
       state = DESCONECTADO;
+      if (modo_debug){
       background(WHITE);
       foreground(BLACK);
       printf("%s","Desconectado!" );
       style(RESETALL); printf("\n");
+      }
     }else{
       sendControlSignal(pidProximo, REQ_DESCONEXAO);
       state = DESCONECTANDO;
+      if (modo_debug){
       background(WHITE);
       foreground(BLACK);
       printf("%s","Desconectando!" );
       style(RESETALL); printf("\n");
+      }
     }
     ret = true;
   }else{
+    if (modo_debug){
     background(WHITE);
     foreground(BLACK);
     printf("%s","Ja desconectado" );
     style(RESETALL); printf("\n");
+    }
   }
   return ret;
 }
@@ -399,10 +446,12 @@ bool send(int valor) {
   bool ret = false;
   if(state == CONECTADO){
     while(!temToken()){
+      if (modo_debug){
       background(RED);
       printf("Não tenho o token!");
       style(RESETALL);
       printf("\n");
+      }
       sleep(1);
     }
     time_t t;
@@ -430,17 +479,24 @@ int receive() {
     if(!token) sem_wait (&semaphore_msg);
     if(msgRecebida.eh_valido){
       msgRecebida.eh_valido = false;
+      if (modo_debug){
       background(BLUE);
       printf("Recebi msg %d", msgRecebida.dado);
       style(RESETALL); printf("\n");
+      }
       return msgRecebida.dado;
     }
   }
 }
 
-int main(void) {
-    registraHandlers();
+int main(int argc, char* argv[]) {
+    bool debug = false;
+    if (argc == 2 && *argv[1] == 'd'){
+      debug = true;
+    }
+    registraHandlers(debug);
     char input = 's';
+    
     while(input != 'e') {
         background(WHITE);
         foreground(BLACK);
