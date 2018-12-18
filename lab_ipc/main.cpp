@@ -25,8 +25,9 @@ int main(int argc, char *argv[]) {
     char input = 's';
 
     while (input != 'e') {
-        printf("%d $ ", getpid());
+        printf("%d: \n", getpid());
         input = getchar();
+        printf("\n");
         switch (input) {
             case 'j':
                 join();
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
                 leave();
                 break;
             case 'r':
-                printf("%d\n", receive());
+                printf("Retorno do receive: %d\n", receive());
                 break;
             case 's':
                 int msg;
