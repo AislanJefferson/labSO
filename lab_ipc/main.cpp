@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <semaphore.h>
 #include <iostream>
 
 #include <sys/types.h>
@@ -22,6 +22,8 @@ int state = DESCONECTADO;
 bool enviando_mensagem = false;
 int pidProximo = SEM_PROXIMO_PROCESSO;
 mensagem msgRecebida = mensagem_padrao;
+sem_t semaphore_msg;
+int semaphore_status = sem_init(&semaphore_msg, 0, 0);
 //
 
 
@@ -101,7 +103,7 @@ void setRootPID(int new_pid) {
  * uma memoria compartilhada entre processos.
  **/
 void *getMemoria(key_t key, bool create = false){
-  int shmid; 
+  int shmid;
   void *shm;
   if(create){
     shmid = shmget(key, sizeof(int), IPC_CREAT | 0666);
@@ -126,7 +128,7 @@ void *getMemoria(key_t key, bool create = false){
 /**
  * Preenche uma area da memoria compartilhada com o PID do
  * processo que tem posse do token.
- **/ 
+ **/
 void setTokenPID(int novoDono){
   // Semaforo para garantir apenas um acesso por vez
   // Declara uma chave para o semaforo
@@ -148,12 +150,17 @@ void setTokenPID(int novoDono){
       if (semop(semid, &x, 1) == -1)
         perror("semop");
       else {
+        foreground(YELLOW);
         printf("Semaforo trancado para setToken\n");
+        foreground(GREEN);
+        printf("Escrevendo o novo dono do token na memoria de token...\n");
         int *memoriaToken = (int *) getMemoria(ENDERECO_TOKEN,true);
         *memoriaToken = novoDono;
         shmdt(memoriaToken);
         semctl(semid,0,SETVAL,1);
-        printf("Semaforo destrancado para setToken\n");
+        foreground(YELLOW);
+        printf("Semaforo destrancado para setToken");
+        style(RESETALL); printf("\n");
       }
     }
   }
@@ -161,7 +168,7 @@ void setTokenPID(int novoDono){
 
 /**
  * Recupera o PID do dono do token na memoria compartilhada.
- **/ 
+ **/
 int getTokenPID(){
   // declara uma key pro semaforo
   key_t semKey = TOKEN_KEY;
@@ -191,7 +198,7 @@ int getTokenPID(){
 
 /**
  * Retorna um true se este processo tiver o token.
- **/ 
+ **/
 bool temToken(){
   return getTokenPID() == getpid();
 }
@@ -215,6 +222,14 @@ void handlerUSR1(int signo, siginfo_t *si, void *data) {
       msgRecebida.dado = *(memoriaMsg);
       shmdt(memoriaMsg);
       msgRecebida.eh_valido = true;
+      // Obtem valor atual do semaforo de msg
+      int valor_semaforo;
+      sem_getvalue(&semaphore_msg, &valor_semaforo);
+      //
+      if(valor_semaforo == 0){
+        sem_post(&semaphore_msg);
+      }
+
       sendMessageSignal(v);
     }
 }
@@ -346,7 +361,7 @@ bool join() {
 
 /**
  * Efetua a saida do processo do anel.
- **/ 
+ **/
 bool leave() {
   bool ret = false;
   if(state == CONECTADO){
@@ -388,8 +403,8 @@ bool send(int valor) {
       printf("Não tenho o token!");
       style(RESETALL);
       printf("\n");
-      sleep(60);
-    }      
+      sleep(1);
+    }
     time_t t;
     srand((unsigned) time(&t));
     key_t key = rand(); /* chave aleatoria para ser paassada para o shmget() */
@@ -402,8 +417,6 @@ bool send(int valor) {
     enviando_mensagem = true;
     sendMessageSignal(sv);
     ret = true;
-
-      
   }
   return ret;
 }
@@ -411,15 +424,16 @@ bool send(int valor) {
 /**
  * Le o dado de msgRecebida.
  **/
-void receive() {
+int receive() {
   if(state == CONECTADO){
-    int token = temToken();
-    while(!token && !msgRecebida.eh_valido) sleep(60);
+    bool token = temToken();
+    if(!token) sem_wait (&semaphore_msg);
     if(msgRecebida.eh_valido){
       msgRecebida.eh_valido = false;
       background(BLUE);
       printf("Recebi msg %d", msgRecebida.dado);
       style(RESETALL); printf("\n");
+      return msgRecebida.dado;
     }
   }
 }
@@ -448,7 +462,7 @@ int main(void) {
                 int msg;
                 scanf("%d",&msg);
                 send(msg);
-                
+
                 break;
         }
     }
