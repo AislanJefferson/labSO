@@ -175,14 +175,14 @@ void setTokenPID(int novoDono) {
                 *memoriaToken = novoDono;
                 shmdt(memoriaToken);
                 semctl(semid, 0, SETVAL, 1);
-                //notifica novo dono
-                sendControlSignal(pidProximo, TOKEN_PASSADO);
                 if (modo_debug) {
                     foreground(YELLOW);
                     printf("Semaforo destrancado para setToken");
                     style(RESETALL);
                     printf("\n");
                 }
+                //notifica novo dono
+                sendControlSignal(pidProximo, TOKEN_PASSADO);
             }
         }
     }
