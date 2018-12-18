@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     printf("-----------------------\n");
     printf("        Legenda\n");
     printf("join: j \n");
@@ -18,13 +18,13 @@ int main(int argc, char* argv[]) {
     printf("receive: r \n");
     printf("-----------------------\n\n");
     bool debug = false;
-    if (argc == 2 && *argv[1] == 'd'){
-      debug = true;
+    if (argc == 2 && *argv[1] == 'd') {
+        debug = true;
     }
     registraHandlers(debug);
     char input = 's';
-    
-    while(input != 'e') {
+
+    while (input != 'e') {
         printf("%d $ ", getpid());
         input = getchar();
         switch (input) {
@@ -35,11 +35,11 @@ int main(int argc, char* argv[]) {
                 leave();
                 break;
             case 'r':
-                printf("%d\n",receive());
+                printf("%d\n", receive());
                 break;
             case 's':
                 int msg;
-                scanf("%d",&msg);
+                scanf("%d", &msg);
                 send(msg);
 
                 break;
