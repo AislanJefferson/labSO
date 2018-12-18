@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <iostream>
+#include <climits>
 
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -446,7 +447,7 @@ bool leave() {
  **/
 bool send(int valor) {
   bool ret = false;
-  if(state == CONECTADO){
+  if(state == CONECTADO && valor > INT_MIN){
     while(!temToken()){
       if (modo_debug){
       background(RED);
@@ -474,6 +475,8 @@ bool send(int valor) {
 
 /**
  * Le o dado de msgRecebida.
+ * Caso esteja conectado no anel e a mensagem seja valida,
+ * retorna o dado da mensagem. Caso contrario retornara um INT_MIN
  **/
 int receive() {
   if(state == CONECTADO){
@@ -489,4 +492,5 @@ int receive() {
       return msgRecebida.dado;
     }
   }
+    return INT_MIN; 
 }
