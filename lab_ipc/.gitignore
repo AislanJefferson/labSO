@@ -1,2 +1,5 @@
 main
 main.exe
+ipcring.a
+ipcring.o
+
